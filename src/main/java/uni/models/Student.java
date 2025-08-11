@@ -1,19 +1,41 @@
 package uni.models;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+@Entity
+@Table(name = "student")
 public class Student {
 
+    @Id
+    @GeneratedValue( strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private String lastName;
-    private Long dni;
-    private int numSemester = 1;
-    private HashMap<Long, Float> averageList;
-    private ArrayList<Long> coursesList;
-    private HashMap<Long, ArrayList<Float>> dictNotes;
 
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
+    private String lastName;
+
+    @Column(nullable = false)
+    private Long dni;
+
+    @Column(nullable = false)
+    private int numSemester = 1;
+
+    @Column(nullable = false)
+    private Float average = 0.0F;
+
+    @ManyToMany(fetch = FetchType.EAGER, mappedBy = "listStudent")
+    private List<Course> courseList;
+
+    @OneToMany(mappedBy = "student")
+    @JsonManagedReference
+    private List<Note> notesList;
 
     public Long getId() {
         return id;
@@ -47,22 +69,6 @@ public class Student {
         this.numSemester = numSemester;
     }
 
-    public ArrayList<Long> getCoursesList() {
-        return coursesList;
-    }
-
-    public void setCoursesList(ArrayList<Long> coursesList) {
-        this.coursesList = coursesList;
-    }
-
-    public HashMap<Long, ArrayList<Float>> getNoteList() {
-        return dictNotes;
-    }
-
-    public void setNoteList(HashMap<Long, ArrayList<Float>> dictNotes) {
-        this.dictNotes = dictNotes;
-    }
-
     public Long getDni() {
         return dni;
     }
@@ -71,35 +77,53 @@ public class Student {
         this.dni = dni;
     }
 
-    public HashMap<Long, Float> getAverageList() {
-        return averageList;
-    }
-
-    public void setAverageList(HashMap<Long, Float> averageList) {
-        this.averageList = averageList;
-    }
-
-    public HashMap<Long, ArrayList<Float>> getDictNotes() {
-        return dictNotes;
-    }
-
-    public void setDictNotes(HashMap<Long, ArrayList<Float>> dictNotes) {
-        this.dictNotes = dictNotes;
-    }
-
-    public Float courseAverage(Long courseId, HashMap<Long, ArrayList<Float>> dictNotes) {
-        Float average = 0.0F;
-        for (Long key: dictNotes.keySet()) {
-
-            if(key.equals(courseId)) {
-                ArrayList<Float> values = dictNotes.get(key);
-                for (Float note: values) {
-                    average += note;
-                }
-                average = average/values.size();
-            }
-        }
-        System.out.println("Average: " + average);
+    public Float getAverage() {
         return average;
     }
+
+    public void setAverage(Float average) {
+        this.average = average;
+    }
+
+    public List<Course> getCourseList() {
+        return courseList;
+    }
+
+    public void setCourseList(List<Course> courseList) {
+        this.courseList = courseList;
+    }
+
+    public List<Note> getNotesList() {
+        return notesList;
+    }
+
+    public void setNotesList(List<Note> notesList) {
+        this.notesList = notesList;
+    }
+
+    public Float calculateAverage(List<Note> notes) {
+        float sum = 0;
+        for (Note note : notes) {
+            System.out.println(note.getNote());
+            sum += note.getNote();
+        }
+        return sum / notes.size();
+    }
+
+//    @Override
+//    public boolean equals(Object obj) {
+//
+//        if(this == obj) return true;
+//        if(obj == null) return false;
+//        if(getClass() != obj.getClass()) return false;
+//
+//        Student student = (Student) obj;
+//
+//        return Objects.equals(student.getDni(), dni);
+//    }
+//
+//    @Override
+//    public int hashCode() {
+//        return Objects.hash(dni);
+//    }
 }

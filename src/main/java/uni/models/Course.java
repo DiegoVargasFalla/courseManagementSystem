@@ -1,21 +1,40 @@
 package uni.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.random.RandomGenerator;
 
+@Entity
+@Table(name = "course")
 public class Course {
 
+    @Id
+    @GeneratedValue( strategy = GenerationType.IDENTITY )
     private  Long id;
     private String name;
     private float average;
-    private ArrayList<Student> approvedStudents;
-    private ArrayList<Student> listStudent;
 
-    public Course(Long id, String name, float average, ArrayList<Student> approvedStudents, ArrayList<Student> listStudent) {
+    @ManyToMany(fetch = FetchType.EAGER, cascade ={ CascadeType.PERSIST, CascadeType.MERGE })
+    @JoinTable(name = "course_student", joinColumns = @JoinColumn(name = "course_id"), inverseJoinColumns = @JoinColumn(name = "student_id"))
+    private List<Student> listStudent;
+
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "course")
+    @JsonManagedReference
+    private List<Note> notes;
+
+    public Course(Long id, String name, float average, ArrayList<Student> listStudent) {
         this.id = id;
         this.name = name;
         this.average = average;
-        this.approvedStudents = approvedStudents;
+        this.listStudent = listStudent;
+    }
+
+    public Course(String name, float average, ArrayList<Student> listStudent) {
+        this.name = name;
+        this.average = average;
         this.listStudent = listStudent;
     }
 
@@ -47,19 +66,11 @@ public class Course {
         this.average = average;
     }
 
-    public ArrayList<Student> getApprovedStudents() {
-        return approvedStudents;
-    }
-
-    public void setApprovedStudents(ArrayList<Student> approvedStudents) {
-        this.approvedStudents = approvedStudents;
-    }
-
-    public ArrayList<Student> getListStudent() {
+    public List<Student> getListStudent() {
         return listStudent;
     }
 
-    public void setListStudent(ArrayList<Student> listStudent) {
+    public void setListStudent(List<Student> listStudent) {
         this.listStudent = listStudent;
     }
 
@@ -76,7 +87,13 @@ public class Course {
         return rgn.nextLong(1000000, 10000000);
     }
 
+    public List<Note> getNotes() {
+        return notes;
+    }
 
+    public void setNotes(ArrayList<Note> notes) {
+        this.notes = notes;
+    }
 
     @Override
     public String toString() {

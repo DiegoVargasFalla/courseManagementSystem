@@ -12,7 +12,6 @@ public class Main {
         //instance of view
         AppUi app = new AppUi();
 
-
         //instance of course class
         Course course = new Course();
 

@@ -53,7 +53,7 @@ La interfaz gráfica fue construida utilizando **Java Swing**, con menús y form
 
 ## 🔐 Persistencia de datos
 
-Todos los datos (cursos, estudiantes y calificaciones) se almacenan en archivos locales `.json`, lo que permite mantener el estado del sistema entre sesiones sin necesidad de una base de datos externa. Para ello, se utiliza la librería **Jackson**, que facilita la serialización y deserialización de objetos Java a JSON.
+La persistencia de datos es gestionada por medio de JPA y el ORM Hibernate para el mapeo de clases hacia la base de datos por medio de anotaciones sin necesidad de utilizar codigo sql.
 
 ---
 
@@ -68,23 +68,11 @@ Todos los datos (cursos, estudiantes y calificaciones) se almacenan en archivos 
 
 ---
 
-## 🎯 Posibles mejoras y extensiones
-
-Este sistema fue construido con una estructura adaptable, lo que permitiría incorporar:
-
-- Promedios automáticos por curso o estudiante
-- Gráficos de rendimiento académico
-- Exportación de informes (PDF/Excel)
-- Integración con bases de datos como MySQL o SQLite
-- Control de acceso por roles (admin, docentes, etc.)
-
----
-
 ## 🧑‍💻 Autor
 
 **Diego Vargas Falla**  
 Estudiante de Ingeniería Informática  
-Desarrollador backend y entusiasta del diseño de software escalable
+Desarrollador backend y entusiasta del diseño de software
 
 ---
 

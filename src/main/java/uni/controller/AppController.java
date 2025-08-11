@@ -1,11 +1,10 @@
 package uni.controller;
 
 import uni.models.Course;
+import uni.models.Note;
 import uni.models.Student;
 import uni.repository.AppRepository;
 import uni.view.AppUi;
-
-import com.fasterxml.jackson.databind.ext.CoreXMLDeserializers;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -14,6 +13,8 @@ import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -32,11 +33,12 @@ public class AppController {
 
 
     public void init() {
+        initPersistence();
         showAddCourse();
         showAddStudent();
         showStudentsTable();
         saveCourse();
-        updateItemsCourses();
+        // updateItemsCourses();
         saveStudent();
         showInfoUser();
         searchStudent();
@@ -46,19 +48,17 @@ public class AppController {
         changeInfoByCourse();
         saveEdition();
         deleteStudent();
-        initPersistence();
     }
 
     public void saveStudent() {
 
         appUi.getButtonSaveUser().addActionListener(e -> {
 
-            Long id = course.generateId();
             String name = appUi.getNameUserInput().getText();
             String lastName = appUi.getLastNameUserInput().getText();
             String dni = appUi.getUserDniInput().getText();
-            Course course =  (Course) appUi.getNameCourseInput().getSelectedItem();
 
+            Course course =  (Course) appUi.getNameCourseInput().getSelectedItem();
 
             if (name.isEmpty()) {
                 showMessage("¡¡Enter your name!!", 2000);
@@ -70,13 +70,14 @@ public class AppController {
                 showMessage("¡¡Enter your dni!!", 2000);
             } else {
 
-
                 //create student instance
                 Student student = new Student();
 
-                ArrayList<Student> studentListFromCourse = course.getListStudent();
-                ArrayList<Long> courseListFromStudent = new ArrayList<>();
-                ArrayList<Student> studentList = appRepository.getStudentArrayList();
+                List<Student> studentListFromCourse = course.getListStudent();
+                for (Student s : studentListFromCourse) {
+                    System.err.println("-> Name student: " + s.getName());
+                }
+                List<Course> courseListFromStudent = new ArrayList<>();
 
                 try {
                     student.setDni(Long.parseLong(dni));
@@ -85,58 +86,58 @@ public class AppController {
                     return;
                 }
 
-                //set all data
-                student.setId(id);
-                student.setName(name);
-                student.setLastName(lastName);
-                student.setNoteList(new HashMap<>());
-                student.setAverageList(new HashMap<Long, Float>());
+                //
+                if(appRepository.checkExistStudent(Long.parseLong(dni))) {
 
-                // add lists for each
-                courseListFromStudent.add(0, course.getId());
-                studentListFromCourse.add(0, student);
+                    //set all student data
+                    student.setName(name);
+                    student.setLastName(lastName);
+                    student.setAverage(0.0F);
 
-                //set list for each of the object
-                studentList.add(0, student);
-                course.setListStudent(studentListFromCourse);
-                student.setCoursesList(courseListFromStudent);
-                appRepository.setStudentArrayList(studentList);
+                    course.getListStudent().add(student);
 
+                    if (appRepository.updateCourse(course)) {
+                        appUi.getNameCourseInput().removeAllItems();
+                        appUi.getNameCourseInput().repaint();
+                        appUi.getNameCourseInput().revalidate();
 
-                if (course.getListStudent().contains(student)) {
-                    appUi.getNameUserInput().setText("");
-                    appUi.getLastNameUserInput().setText("");
-                    appUi.getUserDniInput().setText("");
+                        for(Course c : appRepository.getCourses()) {
+                            appUi.getNameCourseInput().addItem(c);
+                        }
 
-                    appUi.getNameUserInput().requestFocus();
-                    showMessage("User saved", 1000);
-                    appRepository.saveCourseFile(appRepository.getCourseArrayList());
+                        appUi.getNameUserInput().setText("");
+                        appUi.getLastNameUserInput().setText("");
+                        appUi.getUserDniInput().setText("");
+
+                        appUi.getNameUserInput().requestFocus();
+                        showMessage("User saved", 1500);
+                    } else {
+                        showMessage("User not saved", 1500);
+                    }
+                } else {
+                    showMessage("¡¡ User already exist", 2000);
                 }
             }
         });
-
-
     }
 
     public void saveCourse() {
         appUi.getButtonSaveCourse().addActionListener(e -> {
 
             if (appUi.getInputNameCourse().getText().length() > 1) {
-                String id = appUi.getInputIdCourse().getText();
                 String name = appUi.getInputNameCourse().getText();
-                float average = 0;
-                ArrayList<Student> aproverList = new ArrayList<>();
-                ArrayList<Student> listStudent = new ArrayList<>();
 
-                Course course = new Course(Long.parseLong(id), name, average, aproverList, listStudent);
-                appRepository.setCourseArrayList(updateListCourse(course));
+                Course course = new Course();
+                course.setName(name);
+                course.setAverage(0.0F);
 
-                updateIdCourse();
-                if (appRepository.getCourseArrayList().contains(course)) {
+                if(appRepository.createCourse(course)) {
                     addItemsCourses(course);
                     appUi.getInputNameCourse().requestFocus();
-                    showMessage("Course save", 500);
-                    appRepository.saveCourseFile(appRepository.getCourseArrayList());
+                    showMessage("Course save", 2000);
+                    updateIdCourse();
+                } else {
+                    showMessage("Course was not saved", 2000);
                 }
             }
             else {
@@ -164,17 +165,16 @@ public class AppController {
                 appUi.getButtonSearch().setText("Clean Table");
             }
         });
-
     }
 
-    public ArrayList<Course> updateListCourse(Course course) {
+    public List<Course> updateListCourse(Course course) {
 
-        ArrayList<Course> listCourse =  appRepository.getCourseArrayList();
+        List<Course> listCourse =  appRepository.getCourses();
         ArrayList<String> listNameCourses = new ArrayList<>();
 
         if (!listCourse.isEmpty()) {
 
-            for (Course c : listCourse) {
+            for (Course c: listCourse) {
                 listNameCourses.add(c.getName().replace(" " , ""));
             }
 
@@ -197,7 +197,7 @@ public class AppController {
     }
 
     public void updateItemsCourses() {
-        ArrayList<Course> listCourses = appRepository.getCourseArrayList();
+        List<Course> listCourses = appRepository.getCourses();
 
         if (!listCourses.isEmpty()) {
             appUi.getCourseComboBox().removeAllItems();
@@ -287,7 +287,7 @@ public class AppController {
                 deleteComponentsInfo();
 
                 JPanel form = appUi.getUserFormPanel();
-                ArrayList<Course> listCourses = appRepository.getCourseArrayList();
+                List<Course> listCourses = appRepository.getCourses();
                 JComboBox<Course> courseCascade = appUi.getNameCourseInput();
 
                 courseCascade.removeAllItems();
@@ -347,30 +347,22 @@ public class AppController {
 
         appUi.getCourseComboBox().addActionListener(e -> {
 
-
             Course selectionCourse = (Course) appUi.getCourseComboBox().getSelectedItem();
 
             if (selectionCourse != null && selectionCourse.getId() != null) {
 
-                ArrayList<Course> listCourses = appRepository.getCourseArrayList();
+                Optional<Course> courseExisting = appRepository.getCourse(selectionCourse.getId());
 
-                Course actuallyCourse = new Course();
-
-                for (Course course : listCourses) {
-
-                    if (course.getId().equals(selectionCourse.getId())) {
-                        deleteComponentsInfo();
-                        actuallyCourse = course;
-                    }
+                if(courseExisting.isPresent()) {
+                    Course courseUpdate = courseExisting.get();
+                    deleteComponentsInfo();
+                    addStudentsPanel(courseUpdate.getListStudent());
                 }
-                ArrayList<Student> listStudents = actuallyCourse.getListStudent();
-                addStudentsPanel(listStudents);
             }
         });
     }
 
-
-    public void addStudentsPanel(ArrayList<Student> studentList) {
+    public void addStudentsPanel(List<Student> studentList) {
 
         DefaultTableModel model = appUi.getTableModel();
         JTable table = appUi.getTableStudents();
@@ -433,150 +425,123 @@ public class AppController {
             if (selectedRow != -1) {
 
                 Long id = (Long) table.getValueAt(selectedRow, 0);
-                ArrayList<Student> studentList = appRepository.getStudentArrayList();
+                Optional<Student> studentExist = appRepository.getStudent(id);
 
+                if(studentExist.isPresent()) {
 
-                Student newStudent = new Student();
-                System.out.println("lista: " + studentList);
-                System.out.println(id);
-                for (Student student : studentList) {
+                    Student student = studentExist.get();
+
+                    //add widgets to panel student info
                     System.out.println(student.getId());
-                }
+                    appUi.getIdStudentInput().setText(Long.toString(student.getId()));
+                    appUi.getUserNameStudentInput().setText(student.getName());
+                    appUi.getLastNameStudentInput().setText(student.getLastName());
+                    appUi.getUserDniStudentInput().setText(Long.toString(student.getDni()));
+                    appUi.getNumSemesterStudentInput().setText(Integer.toString(student.getNumSemester()));
 
-                for (Student student: studentList) {
+                    appUi.getNameCourseStudentInfo().removeAllItems();
+                    appUi.getNameCourseStudentInfo().revalidate();
+                    appUi.getNameCourseStudentInfo().repaint();
 
-                    if (student.getId().equals(id)) {
-                        newStudent.setId(student.getId());
-                        newStudent.setName(student.getName());
-                        newStudent.setLastName(student.getLastName());
-                        newStudent.setDni(student.getDni());
-                        newStudent.setAverageList(student.getAverageList());
-                        newStudent.setNumSemester(student.getNumSemester());
-                        newStudent.setCoursesList(student.getCoursesList());
-                        newStudent.setNoteList(student.getNoteList());
-                        break;
+                    appUi.getListNotesStudentInfo().removeAllItems();
+                    appUi.getListNotesStudentInfo().revalidate();
+                    appUi.getListNotesStudentInfo().repaint();
+
+
+                    for (Course course : student.getCourseList()) {
+                        appUi.getNameCourseStudentInfo().addItem(course);
                     }
-                }
 
+                    Course course = (Course) appUi.getNameCourseStudentInfo().getSelectedItem();
 
-                //add widgets to panel student info
-                System.out.println(newStudent.getId());
-                appUi.getIdStudentInput().setText(Long.toString(newStudent.getId()));
-                appUi.getUserNameStudentInput().setText(newStudent.getName());
-                appUi.getLastNameStudentInput().setText(newStudent.getLastName());
-                appUi.getUserDniStudentInput().setText(Long.toString(newStudent.getDni()));
-                appUi.getNumSemesterStudentInput().setText(Integer.toString(newStudent.getNumSemester()));
+                    if (course != null) {
 
-                appUi.getNameCourseStudentInfo().removeAllItems();
-                appUi.getNameCourseStudentInfo().revalidate();
-                appUi.getNameCourseStudentInfo().repaint();
+                        ArrayList<Note> noteArrayList = new ArrayList<>();
 
-                appUi.getListNotesStudentInfo().removeAllItems();
-                appUi.getListNotesStudentInfo().revalidate();
-                appUi.getListNotesStudentInfo().repaint();
+                        if(!student.getNotesList().isEmpty()) {
 
+                            appUi.getListNotesStudentInfo().removeAllItems();
+                            appUi.getListNotesStudentInfo().repaint();
 
-                for (Long idCourse : newStudent.getCoursesList()) {
-                    for (Course course: appRepository.getCourseArrayList()) {
-                        if (course.getId().equals(idCourse)) {
-                            appUi.getNameCourseStudentInfo().addItem(course);
-                            break;
-                        }
-                    }
-                }
-
-                if (newStudent.getNoteList() == null) {
-                    System.out.println(" ");
-                } else {
-                    for (Long courseKey: newStudent.getNoteList().keySet()) {
-                        if (courseKey.equals(getIdNotesCourse())) {
-                            for (Float note: newStudent.getNoteList().get(courseKey)) {
-                                appUi.getListNotesStudentInfo().addItem(note);
+                            for (Note note: student.getNotesList()) {
+                                if (note.getCourse().equals(course)) {
+                                    noteArrayList.add(note);
+                                    appUi.getListNotesStudentInfo().addItem(note.getNote());
+                                }
                             }
+                            appUi.getAverageStudentInfoInput().setText(student.calculateAverage(noteArrayList).toString());
+                        } else {
+                            appUi.getAverageStudentInfoInput().setText("0.0");
                         }
                     }
+
+                    panelInfo.add(appUi.getTitleStudentInfoLabel());
+                    panelInfo.add(Box.createVerticalStrut(5));
+
+                    panel1.add(appUi.getIdStudentInfoLabel());
+                    panel1.add(appUi.getIdStudentInput());
+
+                    panel1.add(Box.createVerticalStrut(15));
+
+                    panel1.add(appUi.getUserNameStudentInfoLabel());
+                    panel1.add(appUi.getUserNameStudentInput());
+
+                    panel1.add(Box.createVerticalStrut(15));
+
+                    panel1.add(appUi.getLastNameUserLabel());
+                    panel1.add(appUi.getLastNameStudentInput());
+
+                    panel1.add(Box.createVerticalStrut(15));
+
+                    panel1.add(appUi.getUserDniStudentInfoLabel());
+                    panel1.add(appUi.getUserDniStudentInput());
+
+                    panel1.add(Box.createVerticalStrut(27));
+
+                    panel1.add(appUi.getPanelContentButtonAddCourseStudent());
+                    appUi.getPanelContentButtonAddCourseStudent().add(Box.createHorizontalGlue());
+                    appUi.getPanelContentButtonAddCourseStudent().add(appUi.getButtonDeleteStudent());
+                    appUi.getPanelContentButtonAddCourseStudent().add(Box.createHorizontalStrut(10));
+                    appUi.getPanelContentButtonAddCourseStudent().add(appUi.getButtonAddCourseStudent());
+
+                    panelInfo.add(Box.createVerticalStrut(15));
+
+
+                    panel2.add(appUi.getNumSemesterStudentInfoLabel());
+                    panel2.add(appUi.getNumSemesterStudentInput());
+
+                    panel2.add(Box.createVerticalStrut(15));
+
+                    panel2.add(appUi.getAverageStudentInfoLabel());
+                    panel2.add(appUi.getAverageStudentInfoInput());
+
+                    panel2.add(Box.createVerticalStrut(15));
+
+                    panel2.add(appUi.getNameCourseLabel());
+                    panel2.add(appUi.getNameCourseStudentInfo());
+
+                    panel2.add(Box.createVerticalStrut(15));
+
+                    panel2.add(appUi.getListNotesStudentInfoLabel());
+                    panel2.add(appUi.getListNotesStudentInfo());
+
+                    panel2.add(Box.createVerticalStrut(15));
+
+                    appUi.getPanelButtonsSaveAndEdit().add(appUi.getButtonAddNote());
+                    appUi.getPanelButtonsSaveAndEdit().add(Box.createHorizontalStrut(10));
+                    appUi.getPanelButtonsSaveAndEdit().add(appUi.getButtonEditStudent());
+                    appUi.getPanelButtonsSaveAndEdit().add(Box.createHorizontalStrut(10));
+                    appUi.getPanelButtonsSaveAndEdit().add(appUi.getButtonSaveEditStudent());
+                    panel2.add(appUi.getPanelButtonsSaveAndEdit());
+
+                    panelContentPanels.add(panel1);
+                    panelContentPanels.add(panel2);
+
+                    panelInfo.add(panelContentPanels);
+
+                    appUi.getShowInfoPanel().add(panelInfo);
+
                 }
-
-                Course course = (Course) appUi.getNameCourseStudentInfo().getSelectedItem();
-
-                if (course != null) {
-                    Long courseId = course.getId();
-                    if (!newStudent.getAverageList().isEmpty()) {
-                        for (Long key: newStudent.getAverageList().keySet()) {
-                            if (key.equals(courseId)) {
-                                appUi.getAverageStudentInfoInput().setText(newStudent.getAverageList().get(key).toString());
-                            }
-                        }
-                    } else {
-                        appUi.getAverageStudentInfoInput().setText("0.0");
-                    }
-                }
-
-                panelInfo.add(appUi.getTitleStudentInfoLabel());
-                panelInfo.add(Box.createVerticalStrut(5));
-
-                panel1.add(appUi.getIdStudentInfoLabel());
-                panel1.add(appUi.getIdStudentInput());
-
-                panel1.add(Box.createVerticalStrut(15));
-
-                panel1.add(appUi.getUserNameStudentInfoLabel());
-                panel1.add(appUi.getUserNameStudentInput());
-
-                panel1.add(Box.createVerticalStrut(15));
-
-                panel1.add(appUi.getLastNameUserLabel());
-                panel1.add(appUi.getLastNameStudentInput());
-
-                panel1.add(Box.createVerticalStrut(15));
-
-                panel1.add(appUi.getUserDniStudentInfoLabel());
-                panel1.add(appUi.getUserDniStudentInput());
-
-                panel1.add(Box.createVerticalStrut(27));
-
-                panel1.add(appUi.getPanelContentButtonAddCourseStudent());
-                appUi.getPanelContentButtonAddCourseStudent().add(Box.createHorizontalGlue());
-                appUi.getPanelContentButtonAddCourseStudent().add(appUi.getButtonDeleteStudent());
-                appUi.getPanelContentButtonAddCourseStudent().add(Box.createHorizontalStrut(10));
-                appUi.getPanelContentButtonAddCourseStudent().add(appUi.getButtonAddCourseStudent());
-
-                panelInfo.add(Box.createVerticalStrut(15));
-
-
-                panel2.add(appUi.getNumSemesterStudentInfoLabel());
-                panel2.add(appUi.getNumSemesterStudentInput());
-
-                panel2.add(Box.createVerticalStrut(15));
-
-                panel2.add(appUi.getAverageStudentInfoLabel());
-                panel2.add(appUi.getAverageStudentInfoInput());
-
-                panel2.add(Box.createVerticalStrut(15));
-
-                panel2.add(appUi.getNameCourseLabel());
-                panel2.add(appUi.getNameCourseStudentInfo());
-
-                panel2.add(Box.createVerticalStrut(15));
-
-                panel2.add(appUi.getListNotesStudentInfoLabel());
-                panel2.add(appUi.getListNotesStudentInfo());
-
-                panel2.add(Box.createVerticalStrut(15));
-
-                appUi.getPanelButtonsSaveAndEdit().add(appUi.getButtonAddNote());
-                appUi.getPanelButtonsSaveAndEdit().add(Box.createHorizontalStrut(10));
-                appUi.getPanelButtonsSaveAndEdit().add(appUi.getButtonEditStudent());
-                appUi.getPanelButtonsSaveAndEdit().add(Box.createHorizontalStrut(10));
-                appUi.getPanelButtonsSaveAndEdit().add(appUi.getButtonSaveEditStudent());
-                panel2.add(appUi.getPanelButtonsSaveAndEdit());
-
-                panelContentPanels.add(panel1);
-                panelContentPanels.add(panel2);
-
-                panelInfo.add(panelContentPanels);
-
-                appUi.getShowInfoPanel().add(panelInfo);
             }
         });
     }
@@ -600,45 +565,40 @@ public class AppController {
                 try {
 
                     Float parseNote = Float.parseFloat(note);
-                    Long studentId = Long.parseLong(appUi.getIdStudentInput().getText());
                     Course course = (Course) appUi.getNameCourseStudentInfo().getSelectedItem();
+                    Note newNote = new Note();
 
                     JComboBox<Float> comBoxNotes = appUi.getListNotesStudentInfo();
-                    ArrayList<Student> studentList = appRepository.getStudentArrayList();
 
-                    if (course != null) {
-                        Long courseId = course.getId();
+                    if(course != null) {
+                        for (Student student: course.getListStudent()) {
+                            if(student.getId().equals(Long.parseLong(appUi.getIdStudentInput().getText()))) {
 
-                        for (Student student: studentList) {
-                            if (student.getId().equals(studentId)) {
+                                course.getNotes().add(newNote);
+                                student.getNotesList().add(newNote);
+                                newNote.setCourse(course);
+                                newNote.setNote(parseNote);
+                                newNote.setStudent(student);
 
-                                ArrayList<Float> listNotes = student.getNoteList().get(courseId);
+                                if(appRepository.createNote(newNote)) {
+                                    comBoxNotes.addItem(parseNote);
 
-                                if (listNotes == null) {
-                                    listNotes = new ArrayList<>();
+                                    ArrayList<Note> noteList = new ArrayList<>();
+
+                                    for (Note n: student.getNotesList()) {
+                                        if(n.getCourse().getId().equals(course.getId())) {
+                                            noteList.add(n);
+                                        }
+                                    }
+                                    appUi.getAverageStudentInfoInput().setText(student.calculateAverage(noteList).toString());
+                                    break;
+                                } else {
+                                    showMessage("Note was not saved", 2000);
                                 }
-
-                                listNotes.add(parseNote);
-                                student.getNoteList().put(courseId, listNotes);
-                                System.out.println("id course" + courseId);
-                                System.out.println(student.getNoteList());
-
-                                Float sumNotes = 0.0F;
-                                int counter = 0;
-                                for (Float note1: listNotes) {
-                                    sumNotes += note1;
-                                    counter++;
-                                }
-                                student.getAverageList().put(courseId, (sumNotes/counter));
-
-                                comBoxNotes.addItem(parseNote);
-
-                                appUi.getAverageStudentInfoInput().setText(getAverageCourse(courseId, student.getAverageList()).toString());
-                                appRepository.saveCourseFile(appRepository.getCourseArrayList());
-                                break;
                             }
                         }
                     }
+
                 } catch (NumberFormatException ex) {
                     showMessage("Enter decimal num", 2000);
                 }
@@ -684,39 +644,36 @@ public class AppController {
         appUi.getButtonAddCourseStudent().addActionListener(e -> {
 
             Long id = Long.parseLong(appUi.getIdStudentInput().getText());
-            ArrayList<Student> studentList = appRepository.getStudentArrayList();
-            ArrayList<Course> courseList = appRepository.getCourseArrayList();
+            // ArrayList<Student> studentList = appRepository.getStudentArrayList();
+            List<Course> courseList = appRepository.getCourses();
             JComboBox<Course> courseCascade = appUi.getCascadeCourseByAdd();
             courseCascade.removeAllItems();
             courseCascade.revalidate();
             courseCascade.repaint();
 
-            for (Student student : studentList) {
-                if (student.getId().equals(id)) {
+            Optional<Student> studentExist = appRepository.getStudent(id);
+
+            if(studentExist.isPresent()) {
+                Student student = studentExist.get();
+
+                if(!courseList.isEmpty()) {
                     for (Course course: courseList) {
-                        courseCascade.addItem(course);
-                    }
-
-                    int selectedCourse = JOptionPane.showConfirmDialog(null, courseCascade, "Select course", JOptionPane.OK_CANCEL_OPTION);
-
-                    if (selectedCourse == JOptionPane.OK_OPTION) {
-                        Course course = (Course) courseCascade.getSelectedItem();
-
-
-                        if (course != null) {
-                            ArrayList<Long> courseListNow = student.getCoursesList();
-                            if (!courseListNow.contains(course.getId())) {
-                                courseListNow.add(course.getId());
-                                course.getListStudent().add(0, student);
-                                student.getNoteList().put(course.getId(), new ArrayList<>());
-                                appUi.getNameCourseStudentInfo().addItem(course);
-                                appRepository.saveCourseFile(appRepository.getCourseArrayList());
-                            } else {
-                                showMessage("Course already exist", 2000);
-                            }
+                        if(!student.getCourseList().contains(course)) {
+                            courseCascade.addItem(course);
                         }
                     }
+                }
 
+                int selectedCourse = JOptionPane.showConfirmDialog(null, courseCascade, "Select course", JOptionPane.OK_CANCEL_OPTION);
+
+                if (selectedCourse == JOptionPane.OK_OPTION) {
+                    Course course = (Course) courseCascade.getSelectedItem();
+                    if(course != null) {
+                        course.getListStudent().add(student);
+                        if(appRepository.updateCourse(course)) {
+                            appUi.getNameCourseStudentInfo().addItem(course);
+                        }
+                    }
                 }
             }
         });
@@ -732,30 +689,34 @@ public class AppController {
             System.out.println("course: " + course);
 
             if (course != null) {
-                for (Student student: course.getListStudent()) {
-                    if (student.getId().equals(id)) {
-                        HashMap<Long, ArrayList<Float>> notesDict = student.getNoteList();
-                        System.out.println("-> diccionario: " + notesDict);
-                        for (Long coursekey: notesDict.keySet()) {
-                            System.out.println("key: " + coursekey);
-                            if (coursekey.equals(course.getId())) {
-                                System.out.println("-> ingresando al for de cada nota");
-                                System.out.println("-> lista de notas: " + notesDict.get(coursekey));
-                                appUi.getAverageStudentInfoInput().setText(" ");
+                Optional<Student> studentExist = appRepository.getStudent(id);
+                if(studentExist.isPresent()) {
+                    Student student = studentExist.get();
 
-                                appUi.getAverageStudentInfoInput().setText("");
-                                appUi.getListNotesStudentInfo().removeAllItems();
-                                for (Float note: notesDict.get(coursekey)) {
-                                    appUi.getListNotesStudentInfo().addItem(note);
-                                }
+                    appUi.getAverageStudentInfoInput().setText("");
+                    appUi.getListNotesStudentInfo().removeAllItems();
+                    ArrayList<Note> notesList = new ArrayList<>();
 
-                                if (!student.getAverageList().isEmpty() && !(student.getAverageList().get(coursekey) == null) ) {
-                                    appUi.getAverageStudentInfoInput().setText(student.getAverageList().get(coursekey).toString());
-                                } else {
-                                    appUi.getAverageStudentInfoInput().setText("0.0");
-                                }
-                            }
+                    for(Note note: student.getNotesList()) {
+                        if(note.getCourse().getId().equals(course.getId())) {
+                            appUi.getListNotesStudentInfo().addItem(note.getNote());
+                            notesList.add(note);
                         }
+                    }
+
+                    int count = 0;
+                    for(Note n: student.getNotesList()) {
+                        if(n.getCourse().getId().equals(course.getId())) {
+                            count++;
+                        }
+                    }
+
+                    if(count > 0) {
+                        System.out.println("-> Ingrwsando a ver notas curso");
+                        appUi.getAverageStudentInfoInput().setText(student.calculateAverage(notesList).toString());
+                    } else {
+                        System.out.println("-> no hay notas");
+                        appUi.getAverageStudentInfoInput().setText("0.0");
                     }
                 }
             }
@@ -787,7 +748,7 @@ public class AppController {
                             student.setLastName(lastName);
                             student.setDni(dni);
                             student.setNumSemester(semester);
-                            appRepository.saveCourseFile(appRepository.getCourseArrayList());
+                            appRepository.updateCourse(course);
 
                             appUi.getUserNameStudentInput().setEditable(false);
                             appUi.getLastNameStudentInput().setEditable(false);
@@ -822,16 +783,8 @@ public class AppController {
                 Course course = (Course) appUi.getNameCourseStudentInfo().getSelectedItem();
 
                 if (course != null) {
-                    course.getListStudent().forEach(student -> {
-                        if (student.getId().equals(id)) {
-                            student.getCoursesList().removeIf(c -> c.equals(course.getId()));
-                            student.getNoteList().remove(course.getId());
-                            System.out.println("List Courses: " + student.getCoursesList());
-                            System.out.println("notes: " + student.getNoteList());
-                        }
-                    });
-                    course.getListStudent().removeIf(student -> student.getId().equals(id));
-                    appRepository.saveCourseFile(appRepository.getCourseArrayList());
+                    course.getListStudent().removeIf(s ->  s.getId().equals(id));
+                    appRepository.updateCourse(course);
                     deleteComponentsInfo();
                     deletePanelsUserInfo();
                 }
@@ -839,7 +792,7 @@ public class AppController {
         });
     }
 
-    public void showCoursesSideBar(ArrayList<Course> courses) {
+    public void showCoursesSideBar(List<Course> courses) {
         for (Course course: courses) {
             appUi.getCourseComboBox().addItem(course);
         }
@@ -847,13 +800,11 @@ public class AppController {
 
     public void initPersistence(){
         System.out.println(" --- INIT PERSISTENCE ---");
-        appRepository.readCourseFile();
-        showCoursesSideBar(appRepository.getCourseArrayList());
-        //appRepository.readStudentsFile();
+        // appRepository.readCourseFile();
+        showCoursesSideBar(appRepository.getCourses());
     }
 
     public boolean verificar(Scanner entrada, String mensaje) {
-        System.out.println(mensaje);
         return entrada.hasNextInt();
     }
 
